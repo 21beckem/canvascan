@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Canvascan — Scan</title>
+<style>
+  :root {
+    --ink: #0e1013;
+    --panel: #14161a;
+    --panel-raised: #1c1f24;
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e9e6dd;
+    --text-dim: #9a988f;
+    --brass: #c9a24b;
+    --brass-dim: #8a7038;
+    --danger: #b5533f;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  #app {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #camera-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+  }
+
+  .panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px calc(28px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(14, 16, 19, 0.92) 0%, rgba(14, 16, 19, 0.55) 70%, transparent 100%);
+    z-index: 10;
+  }
+
+  .panel[hidden] { display: none; }
+
+  #panel-setup {
+    inset: 0;
+    justify-content: center;
+    background: var(--ink);
+  }
+
+  .brand {
+    font-family: var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--brass);
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  #setup-message {
+    color: var(--text-dim);
+    font-size: 15px;
+    text-align: center;
+    max-width: 280px;
+  }
+
+  .hint {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    color: var(--text-dim);
+    text-align: center;
+    margin: 0;
+  }
+
+  .frame-guide {
+    position: absolute;
+    top: 8%;
+    left: 6%;
+    right: 6%;
+    bottom: 26%;
+    border: 1.5px solid rgba(201, 162, 75, 0.55);
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  button {
+    font-family: var(--sans);
+    border: none;
+    cursor: pointer;
+  }
+
+  .shutter-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--brass);
+    border: 4px solid rgba(233, 230, 221, 0.85);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  }
+  .shutter-btn:active { background: var(--brass-dim); transform: scale(0.96); }
+  .shutter-btn:disabled { background: #555; border-color: #777; }
+
+  .secondary-btn {
+    background: var(--panel-raised);
+    color: var(--text);
+    border: 1px solid var(--line);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .secondary-btn:disabled { opacity: 0.4; }
+
+  #switch-camera-btn {
+    position: absolute;
+    top: calc(14px + env(safe-area-inset-top));
+    left: 14px;
+    z-index: 8;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(20, 22, 26, 0.7);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #switch-camera-btn[hidden] { display: none; }
+  #switch-camera-btn:active { background: rgba(20, 22, 26, 0.95); }
+  #switch-camera-btn:disabled { opacity: 0.4; }
+
+  #status-overlay {
+    position: absolute;
+    top: calc(14px + env(safe-area-inset-top));
+    right: 14px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(20, 22, 26, 0.85);
+    border: 1px solid var(--line);
+    padding: 8px 14px;
+    border-radius: 20px;
+  }
+  #status-overlay[hidden] { display: none; }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(201, 162, 75, 0.25);
+    border-top-color: var(--brass);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #status-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  #toast {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: calc(150px + env(safe-area-inset-bottom));
+    z-index: 25;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: rgba(181, 83, 63, 0.16);
+    border: 1px solid rgba(181, 83, 63, 0.55);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13.5px;
+  }
+  #toast[hidden] { display: none; }
+  #toast button {
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px;
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <video id="camera-video" autoplay muted playsinline></video>
+
+    <div id="panel-setup" class="panel">
+      <div class="brand">Canvascan</div>
+      <p id="setup-message">Connecting to computer…</p>
+      <button id="retry-camera-btn" class="secondary-btn" hidden>Retry Camera</button>
+    </div>
+
+    <div id="panel-anchor" class="panel" hidden>
+      <div class="frame-guide"></div>
+      <p class="hint">Frame the entire painting, then capture the anchor photo.</p>
+      <button id="capture-anchor-btn" class="shutter-btn" aria-label="Capture anchor photo"></button>
+    </div>
+
+    <div id="panel-details" class="panel" hidden>
+      <p class="hint">Move in close and capture overlapping detail shots.</p>
+      <button id="capture-detail-btn" class="shutter-btn" aria-label="Capture detail photo"></button>
+    </div>
+
+    <button id="switch-camera-btn" type="button" aria-label="Switch camera" hidden>⟳</button>
+
+    <div id="status-overlay" hidden>
+      <div class="spinner"></div>
+      <span id="status-text"></span>
+    </div>
+
+    <div id="toast" hidden>
+      <span id="toast-text"></span>
+      <button type="button" data-role="toast-dismiss" aria-label="Dismiss">✕</button>
+    </div>
+  </div>
+
+  <!-- Pinned CDN library (classic script — must load before the module below) -->
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+
+  <script type="module" src="./src/scanner/ScannerApp.js"></script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Canvascan — Host</title>
+<style>
+  :root {
+    --ink: #0e1013;
+    --panel: #14161a;
+    --panel-raised: #1c1f24;
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e9e6dd;
+    --text-dim: #9a988f;
+    --brass: #c9a24b;
+    --brass-dim: #8a7038;
+    --verdigris: #4c7a6d;
+    --danger: #b5533f;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--sans);
+  }
+
+  #app { position: relative; min-height: 100vh; }
+
+  .brand {
+    font-family: var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--brass);
+    font-size: 13px;
+    margin: 0 0 4px;
+  }
+
+  /* --- QR pairing panel: full-screen overlay until docked --- */
+  #qr-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: rgba(14, 16, 19, 0.97);
+    transition: all 0.35s ease;
+  }
+
+  #qr-panel h1 { font-size: 20px; margin: 0; font-weight: 600; }
+  #qr-panel p.instructions {
+    color: var(--text-dim);
+    font-size: 14px;
+    max-width: 320px;
+    text-align: center;
+    margin: 0;
+  }
+
+  #qr-code {
+    background: #e9e6dd;
+    padding: 12px;
+    border-radius: 10px;
+    line-height: 0;
+  }
+
+  #connected-count {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+
+  #qr-panel.docked {
+    inset: auto;
+    top: auto;
+    left: auto;
+    right: 18px;
+    bottom: 18px;
+    width: 128px;
+    background: rgba(20, 22, 26, 0.9);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    gap: 6px;
+  }
+  #qr-panel.docked h1,
+  #qr-panel.docked p.instructions { display: none; }
+  #qr-panel.docked #qr-code { padding: 6px; border-radius: 6px; }
+  #qr-panel.docked #qr-code canvas,
+  #qr-panel.docked #qr-code img,
+  #qr-panel.docked #qr-code table { width: 100px !important; height: 100px !important; }
+  #qr-panel.docked #connected-count { font-size: 10.5px; }
+
+  /* --- Main content --- */
+  #main-content {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 32px 20px;
+    text-align: center;
+  }
+
+  #waiting-anchor p, #waiting-connection p {
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+
+  #session-active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  #progress-map {
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: rgba(20, 22, 26, 0.7);
+    max-width: 90vw;
+    max-height: 60vh;
+  }
+
+  #export-btn {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--brass);
+    border: none;
+    padding: 14px 28px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  #export-btn:disabled { background: #555; color: #999; cursor: default; }
+  #export-btn:active:not(:disabled) { background: var(--brass-dim); }
+
+  [hidden] { display: none !important; }
+
+  /* --- Status overlay + toast (shared look with scanner.html) --- */
+  #status-overlay {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(20, 22, 26, 0.85);
+    border: 1px solid var(--line);
+    padding: 8px 14px;
+    border-radius: 20px;
+  }
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(201, 162, 75, 0.25);
+    border-top-color: var(--brass);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #status-text { font-family: var(--mono); font-size: 12px; }
+
+  #queue-badge {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    background: rgba(20, 22, 26, 0.7);
+    border: 1px solid var(--line);
+    padding: 7px 16px;
+    border-radius: 20px;
+  }
+
+  #toast {
+    position: fixed;
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+    max-width: 480px;
+    margin: 0 auto;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: rgba(181, 83, 63, 0.16);
+    border: 1px solid rgba(181, 83, 63, 0.55);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13.5px;
+  }
+  #toast button {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="gl-canvas" width="16" height="16" style="display:none"></canvas>
+
+    <div id="main-content">
+      <div id="waiting-connection">
+        <div class="brand">Canvascan</div>
+        <p>Scan the QR code with a phone to begin.</p>
+      </div>
+
+      <div id="waiting-anchor" hidden>
+        <div class="brand">Canvascan</div>
+        <p>Waiting for a phone to capture the anchor photo…</p>
+      </div>
+
+      <div id="session-active" hidden>
+        <canvas id="progress-map"></canvas>
+        <div id="queue-badge" hidden><span id="queue-badge-text"></span></div>
+        <button id="export-btn" type="button" disabled>Export Final Image</button>
+      </div>
+    </div>
+
+    <div id="qr-panel">
+      <h1>Scan to connect a phone</h1>
+      <div id="qr-code"></div>
+      <p class="instructions">Open your phone's camera app and point it at this code.</p>
+      <div id="connected-count">No phones connected</div>
+    </div>
+
+    <div id="status-overlay" hidden>
+      <div class="spinner"></div>
+      <span id="status-text"></span>
+    </div>
+
+    <div id="toast" hidden>
+      <span id="toast-text"></span>
+      <button type="button" data-role="toast-dismiss" aria-label="Dismiss">✕</button>
+    </div>
+  </div>
+
+  <!-- Pinned CDN libraries (classic scripts — must load before the module below) -->
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/davidshimjs-qrcodejs@0.0.2/qrcode.min.js"></script>
+
+  <script type="module" src="./src/host/HostApp.js"></script>
+</body>
+</html>
