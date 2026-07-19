@@ -93,7 +93,16 @@ export class WebGL2Renderer {
 
     gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // RGB channels: standard "over" — srcColor*srcAlpha + dstColor*(1-srcAlpha).
+    // Alpha channel: MUST use a different factor pair (ONE / ONE_MINUS_SRC_ALPHA)
+    // so it accumulates as srcAlpha + dstAlpha*(1-srcAlpha). Using the single
+    // gl.blendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA) call applies SRC_ALPHA to
+    // the alpha channel too, which computes srcAlpha*srcAlpha + dstAlpha*(1-
+    // srcAlpha) instead — quietly deflating alpha below 1.0 at every
+    // partially-feathered edge, even over an already-opaque anchor. That
+    // under-opacity then let CanvasExporter's white background bleed through
+    // at every seam between stitched photos.
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
 
   #allocateTile() {

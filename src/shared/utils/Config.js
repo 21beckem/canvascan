@@ -81,7 +81,7 @@ export class Config {
    *            smaller/faster transfer, minor generational quality loss.
    * Change this one line to switch the whole app's transfer behavior.
    */
-  static PHOTO_TRANSFER_FORMAT = 'raw';
+  static PHOTO_TRANSFER_FORMAT = 'jpeg'; // 'raw' or 'jpeg'
 
   /** JPEG quality used only when PHOTO_TRANSFER_FORMAT === 'jpeg'. */
   static PHOTO_TRANSFER_JPEG_QUALITY = 0.95;
