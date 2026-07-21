@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 import { Config } from '../utils/Config.js';
 
 /**
@@ -19,6 +20,10 @@ export class PhotoCodec {
    * @returns {Promise<{format:'raw'|'jpeg', width:number, height:number, buffer:ArrayBuffer}>}
    */
   static async encode(bitmap, format = Config.PHOTO_TRANSFER_FORMAT) {
+    Type.check({ bitmap }, ImageBitmap);
+    if (!['raw', 'jpeg'].includes(format)) {
+      throw new Error(`PhotoCodec.encode: unsupported format "${format}"`);
+    }
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
     const ctx = canvas.getContext('2d', { willReadFrequently: format === 'raw' });
     ctx.drawImage(bitmap, 0, 0);
@@ -43,7 +48,14 @@ export class PhotoCodec {
    * @param {{format:'raw'|'jpeg', width:number, height:number, buffer:ArrayBuffer}} payload
    * @returns {Promise<ImageBitmap>}
    */
-  static async decode({ format, width, height, buffer }) {
+  static async decode(o) {
+    Type.check({ o }, 'object');
+    const { format, width, height, buffer } = o;
+    if (!['raw', 'jpeg'].includes(format))
+      throw new Error(`PhotoCodec.decode: unsupported format "${format}"`);
+    Type.check({ width, height }, 'number');
+    Type.check({ buffer }, ArrayBuffer);
+
     if (format === 'jpeg') {
       const blob = new Blob([buffer], { type: 'image/jpeg' });
       return createImageBitmap(blob);

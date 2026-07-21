@@ -1,3 +1,4 @@
+import { Type } from '../shared/utils/Type.js';
 import { AppState } from '../shared/state/AppStateMachine.js';
 
 /**
@@ -9,29 +10,40 @@ import { AppState } from '../shared/state/AppStateMachine.js';
  * connected mode those live on host.html instead).
  */
 export class StandaloneUIController {
-  #refs;
   #currentState;
   #cameraSwitchLocked;
 
-  /**
-   * @param {{
-   *   panelSetup: HTMLElement,
-   *   panelAnchor: HTMLElement,
-   *   panelDetails: HTMLElement,
-   *   captureAnchorBtn: HTMLButtonElement,
-   *   captureDetailBtn: HTMLButtonElement,
-   *   retryCameraBtn: HTMLButtonElement,
-   *   switchCameraBtn: HTMLButtonElement,
-   *   setupMessageEl: HTMLElement,
-   *   progressMapEl: HTMLElement,
-   *   exportBtn: HTMLButtonElement,
-   * }} refs
-   */
-  constructor(refs) {
-    this.#refs = refs;
+  #panelSetupNode;
+  #panelAnchorNode;
+  #panelDetailsNode;
+  #setupMessageElNode;
+  #progressMapElNode;
+  #captureAnchorBtnNode;
+  #captureDetailBtnNode;
+  #retryCameraBtnNode;
+  #switchCameraBtnNode;
+  #exportBtnNode;
+
+  constructor(o) {
+    Type.check({ parameters: o }, 'object');
+    const { panelSetup, panelAnchor, panelDetails, captureAnchorBtn, captureDetailBtn, retryCameraBtn, switchCameraBtn, setupMessageEl, progressMapEl, exportBtn } = o;
+    Type.check({ panelSetup,  panelAnchor,  panelDetails,  setupMessageEl,  progressMapEl }, HTMLElement);
+    Type.check({ captureAnchorBtn, captureDetailBtn, retryCameraBtn, switchCameraBtn, exportBtn }, HTMLButtonElement);
+
+    this.#panelSetupNode = panelSetup;
+    this.#panelAnchorNode = panelAnchor;
+    this.#panelDetailsNode = panelDetails;
+    this.#setupMessageElNode = setupMessageEl;
+    this.#progressMapElNode = progressMapEl;
+    this.#captureAnchorBtnNode = captureAnchorBtn;
+    this.#captureDetailBtnNode = captureDetailBtn;
+    this.#retryCameraBtnNode = retryCameraBtn;
+    this.#switchCameraBtnNode = switchCameraBtn;
+    this.#exportBtnNode = exportBtn;
+
     this.#currentState = AppState.SETUP_CAMERA;
     this.#cameraSwitchLocked = false;
-    if (this.#refs.exportBtn) this.#refs.exportBtn.hidden = false;
+    if (this.#exportBtnNode) this.#exportBtnNode.hidden = false;
   }
 
   /** @param {import('../shared/state/AppStateMachine.js').AppStateMachine} stateMachine */
@@ -43,42 +55,34 @@ export class StandaloneUIController {
 
   #applyState(state) {
     this.#currentState = state;
-    const { panelSetup, panelAnchor, panelDetails, progressMapEl } = this.#refs;
-    panelSetup.hidden = state !== AppState.SETUP_CAMERA;
-    panelAnchor.hidden = state !== AppState.CAPTURE_ANCHOR;
-    panelDetails.hidden = state !== AppState.CAPTURE_DETAILS;
+    this.#panelSetupNode.hidden = state !== AppState.SETUP_CAMERA;
+    this.#panelAnchorNode.hidden = state !== AppState.CAPTURE_ANCHOR;
+    this.#panelDetailsNode.hidden = state !== AppState.CAPTURE_DETAILS;
 
-    if (progressMapEl) progressMapEl.hidden = state !== AppState.CAPTURE_DETAILS;
-    if (this.#refs.switchCameraBtn) {
-      this.#refs.switchCameraBtn.hidden =
+    if (this.#progressMapElNode) this.#progressMapElNode.hidden = state !== AppState.CAPTURE_DETAILS;
+    if (this.#switchCameraBtnNode) {
+      this.#switchCameraBtnNode.hidden =
         this.#cameraSwitchLocked || state !== AppState.CAPTURE_ANCHOR;
     }
   }
 
-  /**
-   * @param {{
-   *   onCaptureAnchor: () => void,
-   *   onCaptureDetail: () => void,
-   *   onRetryCamera: () => void,
-   *   onSwitchCamera: () => void,
-   *   onExport: () => void,
-   * }} handlers
-   */
-  wireCallbacks(handlers) {
-    const { captureAnchorBtn, captureDetailBtn, retryCameraBtn, switchCameraBtn, exportBtn } =
-      this.#refs;
-    captureAnchorBtn.addEventListener('click', () => handlers.onCaptureAnchor?.());
-    captureDetailBtn.addEventListener('click', () => handlers.onCaptureDetail?.());
-    retryCameraBtn.addEventListener('click', () => handlers.onRetryCamera?.());
-    switchCameraBtn?.addEventListener('click', () => handlers.onSwitchCamera?.());
-    exportBtn?.addEventListener('click', () => handlers.onExport?.());
+  wireCallbacks(o) {
+    Type.check({ parameters: o }, 'object');
+    const { onCaptureAnchor, onCaptureDetail, onRetryCamera, onSwitchCamera, onExport } = o;
+    Type.check({ onCaptureAnchor, onCaptureDetail, onRetryCamera, onSwitchCamera, onExport }, 'function');
+
+    this.#captureAnchorBtnNode.addEventListener('click', () => onCaptureAnchor());
+    this.#captureDetailBtnNode.addEventListener('click', () => onCaptureDetail());
+    this.#retryCameraBtnNode.addEventListener('click', () => onRetryCamera());
+    this.#switchCameraBtnNode?.addEventListener('click', () => onSwitchCamera());
+    this.#exportBtnNode?.addEventListener('click', () => onExport());
   }
 
   /** @param {boolean} busy disables capture-anchor/switch-camera during the one-shot anchor capture. */
   setAnchorBusy(busy) {
-    const { captureAnchorBtn, switchCameraBtn } = this.#refs;
-    captureAnchorBtn.disabled = busy;
-    if (switchCameraBtn) switchCameraBtn.disabled = busy;
+    Type.check({ busy }, 'boolean');
+    this.#captureAnchorBtnNode.disabled = busy;
+    if (this.#switchCameraBtnNode) this.#switchCameraBtnNode.disabled = busy;
   }
 
   /** Permanently hides the switch-camera control. */
@@ -89,16 +93,16 @@ export class StandaloneUIController {
 
   /** @param {boolean} enabled whether Export can be tapped right now. */
   setExportEnabled(enabled) {
-    if (this.#refs.exportBtn) this.#refs.exportBtn.disabled = !enabled;
+    if (this.#exportBtnNode) this.#exportBtnNode.disabled = !enabled;
   }
 
   showSetupError(message) {
-    this.#refs.setupMessageEl.textContent = message;
-    this.#refs.retryCameraBtn.hidden = false;
+    this.#setupMessageElNode.textContent = message;
+    this.#retryCameraBtnNode.hidden = false;
   }
 
   showSetupMessage(message) {
-    this.#refs.setupMessageEl.textContent = message;
-    this.#refs.retryCameraBtn.hidden = true;
+    this.#setupMessageElNode.textContent = message;
+    this.#retryCameraBtnNode.hidden = true;
   }
 }

@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 import { Config } from '../utils/Config.js';
 
 /**
@@ -16,6 +17,8 @@ export class CameraController {
    * @param {string | null} [deviceId] the deviceId actually in use, if known
    */
   constructor(stream, deviceId = null) {
+    Type.check({ stream }, MediaStream);
+    if (deviceId !== null) Type.check({ deviceId }, 'string');
     this.#stream = stream;
     this.#videoElement = null;
     this.#devices = null;
@@ -55,6 +58,7 @@ export class CameraController {
   }
 
   static #wrapGetUserMediaError(err) {
+    Type.check({ err }, Error);
     const wrapped = new Error(`getUserMedia failed: ${err.message}`);
     if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
       wrapped.userMessage = 'Camera permission was denied. Enable camera access and try again.';
@@ -145,6 +149,7 @@ export class CameraController {
    * @returns {Promise<{width:number, height:number}>}
    */
   attach(videoElement) {
+    Type.check({ videoElement }, HTMLVideoElement);
     this.#videoElement = videoElement;
     videoElement.srcObject = this.#stream;
     videoElement.setAttribute('playsinline', ''); // required for iOS inline playback

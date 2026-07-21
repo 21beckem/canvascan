@@ -1,4 +1,5 @@
-import { AppState } from '../shared/state/AppStateMachine.js';
+import { Type } from '../shared/utils/Type.js';
+import { AppState, AppStateMachine } from '../shared/state/AppStateMachine.js';
 
 /**
  * RemoteScannerUIController.js
@@ -25,6 +26,16 @@ export class RemoteScannerUIController {
    * }} refs
    */
   constructor(refs) {
+    Type.check({ refs }, 'object');
+    Type.check({ panelSetup: refs.panelSetup }, HTMLElement);
+    Type.check({ panelAnchor: refs.panelAnchor }, HTMLElement);
+    Type.check({ panelDetails: refs.panelDetails }, HTMLElement);
+    Type.check({ captureAnchorBtn: refs.captureAnchorBtn }, HTMLButtonElement);
+    Type.check({ captureDetailBtn: refs.captureDetailBtn }, HTMLButtonElement);
+    Type.check({ retryCameraBtn: refs.retryCameraBtn }, HTMLButtonElement);
+    Type.check({ switchCameraBtn: refs.switchCameraBtn }, HTMLButtonElement);
+    Type.check({ setupMessageEl: refs.setupMessageEl }, HTMLElement);
+
     this.#refs = refs;
     this.#currentState = AppState.SETUP_CAMERA;
     this.#cameraSwitchLocked = false;
@@ -32,12 +43,14 @@ export class RemoteScannerUIController {
 
   /** @param {import('../shared/state/AppStateMachine.js').AppStateMachine} stateMachine */
   bindStateMachine(stateMachine) {
+    Type.check({ stateMachine }, AppStateMachine);
     const apply = (state) => this.#applyState(state);
     apply(stateMachine.state);
     stateMachine.onTransition((state) => apply(state));
   }
 
   #applyState(state) {
+    Type.check({ state }, 'string');
     this.#currentState = state;
     const { panelSetup, panelAnchor, panelDetails } = this.#refs;
     panelSetup.hidden = state !== AppState.SETUP_CAMERA;
@@ -58,16 +71,21 @@ export class RemoteScannerUIController {
    *   onSwitchCamera: () => void,
    * }} handlers
    */
-  wireCallbacks(handlers) {
+  wireCallbacks(o) {
+    Type.check({ parameters: o }, 'object');
+    const { onCaptureAnchor, onCaptureDetail, onRetryCamera, onSwitchCamera } = o;
+    Type.check({ onCaptureAnchor, onCaptureDetail, onRetryCamera, onSwitchCamera }, 'function');
+
     const { captureAnchorBtn, captureDetailBtn, retryCameraBtn, switchCameraBtn } = this.#refs;
-    captureAnchorBtn.addEventListener('click', () => handlers.onCaptureAnchor?.());
-    captureDetailBtn.addEventListener('click', () => handlers.onCaptureDetail?.());
-    retryCameraBtn.addEventListener('click', () => handlers.onRetryCamera?.());
-    switchCameraBtn?.addEventListener('click', () => handlers.onSwitchCamera?.());
+    captureAnchorBtn.addEventListener('click', () => onCaptureAnchor());
+    captureDetailBtn.addEventListener('click', () => onCaptureDetail());
+    retryCameraBtn.addEventListener('click', () => onRetryCamera());
+    switchCameraBtn?.addEventListener('click', () => onSwitchCamera());
   }
 
   /** @param {boolean} busy disables capture-anchor/switch-camera during the one-shot anchor capture. */
   setAnchorBusy(busy) {
+    Type.check({ busy }, 'boolean');
     const { captureAnchorBtn, switchCameraBtn } = this.#refs;
     captureAnchorBtn.disabled = busy;
     if (switchCameraBtn) switchCameraBtn.disabled = busy;
@@ -75,6 +93,7 @@ export class RemoteScannerUIController {
 
   /** @param {boolean} enabled whether capture-detail can be tapped right now. */
   setDetailCaptureEnabled(enabled) {
+    Type.check({ enabled }, 'boolean');
     this.#refs.captureDetailBtn.disabled = !enabled;
   }
 

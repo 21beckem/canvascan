@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 import { Config } from '../utils/Config.js';
 import { Matrix3 } from '../utils/Matrix3.js';
 import { TileManager } from './TileManager.js';
@@ -54,6 +55,7 @@ export class WebGL2Renderer {
    * @throws {Error} with `.userMessage` if WebGL2 is unavailable.
    */
   static create(canvasElement) {
+    Type.check({ canvasElement }, HTMLCanvasElement);
     const gl = canvasElement.getContext('webgl2', {
       alpha: true,
       premultipliedAlpha: false,
@@ -137,6 +139,7 @@ export class WebGL2Renderer {
   }
 
   #key(row, col) {
+    Type.check({ row, col }, 'number');
     return `${row},${col}`;
   }
 
@@ -163,6 +166,7 @@ export class WebGL2Renderer {
    * @returns {{outputWidth: number, outputHeight: number}}
    */
   configureForAnchor(anchorBitmap) {
+    Type.check({ anchorBitmap }, 'ImageBitmap');
     const gl = this.#gl;
     const longEdge = Config.LONG_EDGE_TARGET;
 
@@ -200,6 +204,7 @@ export class WebGL2Renderer {
   }
 
   #paintAnchorSkeleton(anchorWidth, anchorHeight) {
+    Type.check({ anchorWidth, anchorHeight }, 'number');
     const gl = this.#gl;
     const invTransform = Matrix3.invert(this.#anchorToMaster);
     const size = this.#tileManager.tileSize;
@@ -248,7 +253,14 @@ export class WebGL2Renderer {
    * @returns {{minX:number, minY:number, maxX:number, maxY:number}} the
    *   master-canvas bounding box that was touched (for progress mapping).
    */
-  stitchDetail({ detailBitmap, homography, featherMask, detailWidth, detailHeight }) {
+  stitchDetail(o) {
+    Type.check({ o }, 'object');
+    const { detailBitmap, homography, featherMask, detailWidth, detailHeight } = o;
+    Type.check({ detailBitmap }, ImageBitmap);
+    Type.check({ homography }, 'array');
+    Type.check({ featherMask }, 'object');
+    Type.check({ 'featherMask.width': featherMask.width, 'featherMask.height': featherMask.height }, 'number');
+    Type.check({ detailWidth, detailHeight }, 'number');
     if (!this.hasAnchor()) {
       throw new Error('WebGL2Renderer.stitchDetail: no anchor has been painted yet.');
     }
@@ -321,6 +333,7 @@ export class WebGL2Renderer {
    * triangle fan using the shared dynamic VBO.
    */
   #drawQuad(minX, minY, maxX, maxY) {
+    Type.check({ minX, minY, maxX, maxY }, 'number');
     const gl = this.#gl;
     const verts = new Float32Array([minX, minY, maxX, minY, maxX, maxY, minX, maxY]);
     gl.bindVertexArray(this.#quadVAO);
@@ -341,6 +354,7 @@ export class WebGL2Renderer {
    * @returns {Uint8Array} length = tileSize*tileSize*4
    */
   readTilePixels(row, col) {
+    Type.check({ row, col }, 'number');
     const gl = this.#gl;
     const size = this.#tileManager.tileSize;
     const tile = this.#tiles.get(this.#key(row, col));

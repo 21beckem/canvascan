@@ -1,3 +1,4 @@
+import { Type } from '../shared/utils/Type.js';
 /**
  * PeerScannerManager.js
  * Wraps a PeerJS `Peer` in "client" mode: gets a random id from the public
@@ -22,7 +23,12 @@ export class PeerScannerManager {
    *   onError: (err: Error) => void,
    * }} params
    */
-  constructor({ hostPeerId, onConnected, onDisconnected, onMessage, onError }) {
+  constructor(o) {
+    Type.check({ parameters: o }, 'object');
+    const { hostPeerId, onConnected, onDisconnected, onMessage, onError } = o;
+    Type.check({ hostPeerId }, 'string');
+    Type.check({ onConnected, onDisconnected, onMessage, onError }, 'function');
+
     this.#hostPeerId = hostPeerId;
     this.#conn = null;
 
@@ -43,6 +49,7 @@ export class PeerScannerManager {
 
   /** @param {unknown} data */
   send(data) {
+    Type.check({ data }, 'object');
     if (this.#conn?.open) this.#conn.send(data);
   }
 

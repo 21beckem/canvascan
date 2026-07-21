@@ -1,3 +1,4 @@
+import { Type } from '../shared/utils/Type.js';
 import { Config } from '../shared/utils/Config.js';
 import { StatusOverlay } from '../shared/ui/StatusOverlay.js';
 import { PhotoCodec } from '../shared/transfer/PhotoCodec.js';
@@ -105,13 +106,21 @@ class HostApp {
   }
 
   #handleHostReady(hostPeerId) {
+    Type.check({ hostPeerId }, 'string');
     const scannerUrl = new URL('scanner.html', window.location.href);
     scannerUrl.searchParams.set(Config.PEER_ID_QUERY_PARAM, hostPeerId);
     console.log(`Host ready. Scanner URL: ${scannerUrl.toString()}`);
     this.#qrCodeView.render(scannerUrl.toString());
   }
 
-  async #handlePhotoComplete({ photoId, kind, format, width, height, buffer, senderId }) {
+  async #handlePhotoComplete(o) {
+    Type.check({ parameters: o }, 'object');
+    const { photoId, kind, format, width, height, buffer, senderId } = o;
+    Type.check({ photoId, kind, format }, 'string');
+    Type.check({ width, height }, 'number');
+    Type.check({ buffer }, ArrayBuffer);
+    Type.check({ senderId }, 'string');
+    
     if (!this.#pipeline.isReady) {
       this.#statusOverlay.showError('Still starting up — try that photo again in a few seconds.');
       return;
@@ -152,11 +161,13 @@ class HostApp {
   }
 
   #handleAnchorFailed(reason, tag) {
+    Type.check({ reason, tag }, 'string');
     if (tag) this.#peerHost.sendTo(tag, { type: 'ANCHOR_FAILED', reason });
     this.#statusOverlay.showError(reason);
   }
 
   #handleDetailResult(tag, photoId) {
+    Type.check({ tag, photoId }, 'string');
     if (tag) this.#peerHost.sendTo(tag, { type: 'DETAIL_ACK', photoId, success: true });
   }
 

@@ -1,4 +1,6 @@
+import { Type } from '../utils/Type.js';
 import { Config } from '../utils/Config.js';
+import { WebGL2Renderer } from '../render/WebGL2Renderer.js';
 
 /**
  * CanvasExporter.js
@@ -12,6 +14,7 @@ export class CanvasExporter {
    * @returns {Promise<Blob>}
    */
   static async compositeToBlob(renderer) {
+    Type.check({ renderer }, WebGL2Renderer);
     const tileManager = renderer.tileManager;
     const tileSize = tileManager.tileSize;
     const { width: outputWidth, height: outputHeight } = renderer.outputSize;
@@ -61,6 +64,13 @@ export class CanvasExporter {
    * @returns {Uint8ClampedArray}
    */
   static #flipVertical(data, width, height) {
+    Type.check({ data }, Uint8Array);
+    Type.check({ width }, 'number');
+    Type.check({ height }, 'number');
+    if (width <= 0 || !Number.isInteger(width))
+      throw new Error('Width must be a positive integer.');
+    if (height <= 0 || !Number.isInteger(height))
+      throw new Error('Height must be a positive integer.');
     const rowBytes = width * 4;
     const out = new Uint8ClampedArray(data.length);
     for (let row = 0; row < height; row++) {
@@ -77,6 +87,11 @@ export class CanvasExporter {
    * @param {string} [filename]
    */
   static async downloadComposite(renderer, filename = 'canvascan-export.jpg') {
+    Type.check({ renderer }, WebGL2Renderer);
+    Type.check({ filename }, 'string');
+    if (!filename.toLowerCase().endsWith('.jpg') && !filename.toLowerCase().endsWith('.jpeg')) {
+      throw new Error('Filename must end with .jpg or .jpeg');
+    }
     const blob = await CanvasExporter.compositeToBlob(renderer);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

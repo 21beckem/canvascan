@@ -1,3 +1,4 @@
+import { Type } from '../shared/utils/Type.js';
 /**
  * PeerHostManager.js
  * Wraps a PeerJS `Peer` in "host" mode: gets a random id from the public
@@ -25,7 +26,11 @@ export class PeerHostManager {
    *   onMessage: (peerId: string, data: unknown) => void,
    * }} handlers
    */
-  constructor({ onHostReady, onHostError, onClientConnected, onClientDisconnected, onMessage }) {
+  constructor(o) {
+    Type.check({ parameters: o }, 'object');
+    const { onHostReady, onHostError, onClientConnected, onClientDisconnected, onMessage } = o;
+    Type.check({ onHostReady, onHostError, onClientConnected, onClientDisconnected, onMessage }, 'function');
+
     this.#connections = new Map();
     this.#onClientConnected = onClientConnected;
     this.#onClientDisconnected = onClientDisconnected;
@@ -39,6 +44,7 @@ export class PeerHostManager {
   }
 
   #registerConnection(conn) {
+    Type.check({ conn }, 'object');
     conn.on('open', () => {
       this.#connections.set(conn.peer, conn);
       this.#onClientConnected(conn.peer, this.#connections.size);
@@ -49,6 +55,7 @@ export class PeerHostManager {
   }
 
   #dropConnection(peerId) {
+    Type.check({ peerId }, 'string');
     if (!this.#connections.has(peerId)) return;
     this.#connections.delete(peerId);
     this.#onClientDisconnected(peerId, this.#connections.size);
@@ -56,6 +63,7 @@ export class PeerHostManager {
 
   /** Sends `data` to every currently-open phone connection. */
   broadcast(data) {
+    Type.check({ data }, 'object');
     for (const conn of this.#connections.values()) {
       if (conn.open) conn.send(data);
     }
@@ -63,6 +71,8 @@ export class PeerHostManager {
 
   /** @param {string} peerId @param {unknown} data */
   sendTo(peerId, data) {
+    Type.check({ peerId }, 'string');
+    Type.check({ data }, 'object');
     const conn = this.#connections.get(peerId);
     if (conn?.open) conn.send(data);
   }

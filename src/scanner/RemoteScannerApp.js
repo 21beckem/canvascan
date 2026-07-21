@@ -1,3 +1,4 @@
+import { Type } from '../shared/utils/Type.js';
 import { Config } from '../shared/utils/Config.js';
 import { AppStateMachine, AppState } from '../shared/state/AppStateMachine.js';
 import { StatusOverlay } from '../shared/ui/StatusOverlay.js';
@@ -81,6 +82,7 @@ export class RemoteScannerApp {
   }
 
   #initPeerScanner(hostPeerId) {
+    Type.check({ hostPeerId }, 'string');
     this.#peerScanner = new PeerScannerManager({
       hostPeerId,
       onConnected: () => {
@@ -98,6 +100,7 @@ export class RemoteScannerApp {
       },
       onMessage: (data) => this.#handleHostMessage(data),
       onError: (err) => {
+        Type.check({ err }, Error);
         if (!this.#peerConnected) {
           this.#ui.showSetupError('Could not connect to the computer. Try scanning the QR code again.');
         } else {
@@ -107,10 +110,13 @@ export class RemoteScannerApp {
     });
   }
 
-  #handleHostMessage(msg) {
-    if (!msg || typeof msg !== 'object') return;
+  #handleHostMessage(o) {
+    Type.check({ parameters: o }, 'object');
+    const { type, reason, success } = o;
+    Type.check({ type, reason }, 'string');
+    Type.check({ success }, 'boolean');
 
-    switch (msg.type) {
+    switch (type) {
       case 'ANCHOR_ESTABLISHED':
         this.#anchorEstablished = true;
         if (this.#stateMachine.is(AppState.CAPTURE_ANCHOR)) {
@@ -123,7 +129,7 @@ export class RemoteScannerApp {
         break;
 
       case 'ANCHOR_FAILED':
-        this.#statusOverlay.showError(msg.reason || 'The anchor photo could not be processed.');
+        this.#statusOverlay.showError(reason || 'The anchor photo could not be processed.');
         this.#ui.setAnchorBusy(false);
         break;
 
@@ -133,8 +139,8 @@ export class RemoteScannerApp {
         break;
 
       case 'DETAIL_ACK':
-        if (!msg.success) {
-          this.#statusOverlay.showError(msg.reason || 'That detail photo could not be aligned.');
+        if (!success) {
+          this.#statusOverlay.showError(reason || 'That detail photo could not be aligned.');
         }
         break;
 

@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 /**
  * ShaderProgram.js
  * Generic WebGL2 shader compile/link wrapper with cached attribute/uniform
@@ -14,6 +15,8 @@ export class ShaderProgram {
    * @param {WebGLProgram} program
    */
   constructor(gl, program) {
+    Type.check({ gl }, WebGL2RenderingContext);
+    Type.check({ program }, WebGLProgram);
     this.#gl = gl;
     this.#program = program;
     this.#uniformCache = new Map();
@@ -29,6 +32,8 @@ export class ShaderProgram {
    * @throws {Error} on compile or link failure, including the GL info log.
    */
   static fromSources(gl, vertSource, fragSource) {
+    Type.check({ gl }, WebGL2RenderingContext);
+    Type.check({ vertSource, fragSource }, 'string');
     const vertShader = ShaderProgram.#compile(gl, gl.VERTEX_SHADER, vertSource);
     const fragShader = ShaderProgram.#compile(gl, gl.FRAGMENT_SHADER, fragSource);
 
@@ -52,6 +57,11 @@ export class ShaderProgram {
   }
 
   static #compile(gl, type, source) {
+    Type.check({ gl }, WebGL2RenderingContext);
+    if (type !== gl.VERTEX_SHADER && type !== gl.FRAGMENT_SHADER)
+      throw new TypeError(`ShaderProgram: invalid shader type ${type}`);
+    Type.check({ source }, 'string');
+
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
@@ -70,6 +80,7 @@ export class ShaderProgram {
 
   /** @param {string} name @returns {WebGLUniformLocation | null} */
   uniformLocation(name) {
+    Type.check({ name }, 'string');
     if (!this.#uniformCache.has(name)) {
       this.#uniformCache.set(name, this.#gl.getUniformLocation(this.#program, name));
     }
@@ -78,6 +89,7 @@ export class ShaderProgram {
 
   /** @param {string} name @returns {number} */
   attribLocation(name) {
+    Type.check({ name }, 'string');
     if (!this.#attribCache.has(name)) {
       this.#attribCache.set(name, this.#gl.getAttribLocation(this.#program, name));
     }

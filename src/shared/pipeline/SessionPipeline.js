@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 import { WebGL2Renderer } from '../render/WebGL2Renderer.js';
 import { ProgressMap } from '../ui/ProgressMap.js';
 import { CanvasExporter } from '../export/CanvasExporter.js';
@@ -51,8 +52,27 @@ export class SessionPipeline {
    *   },
    * }} params
    */
-  constructor({ glCanvasElement, progressMapElement, progressMapMaxDim, callbacks }) {
-    this.#callbacks = callbacks ?? {};
+  constructor(o) {
+    Type.check({ parameters: o }, 'object');
+    const { glCanvasElement, progressMapElement, progressMapMaxDim, callbacks } = o;
+    Type.check({ glCanvasElement }, HTMLCanvasElement);
+    Type.check({ progressMapElement }, HTMLCanvasElement);
+    Type.check({ progressMapMaxDim }, 'number');
+    Type.check({ callbacks }, 'object');
+    Type.check({
+      onStatus: callbacks.onStatus,
+      onReady: callbacks.onReady,
+      onWorkerError: callbacks.onWorkerError,
+      onAnchorReadynumber: callbacks.onAnchorReadynumber,
+      onAnchorFailed: callbacks.onAnchorFailed,
+      onDetailResult: callbacks.onDetailResult,
+      onDetailFailed: callbacks.onDetailFailed,
+      onQueueChanged: callbacks.onQueueChanged,
+      onQueueDrained: callbacks.onQueueDrained,
+    }, 'function');
+
+
+    this.#callbacks = callbacks;
     this.#cvReady = false;
     this.#hasAnchor = false;
     this.#anchorInFlight = false;
@@ -91,6 +111,8 @@ export class SessionPipeline {
    * @returns {{accepted: boolean, reason?: 'ANCHOR_ALREADY_SET'|'ANCHOR_IN_FLIGHT'}}
    */
   submitAnchor(bitmap, tag = undefined) {
+    Type.check({ bitmap }, ImageBitmap);
+    if (tag !== undefined) Type.check({ tag }, 'string');
     if (this.#hasAnchor) return { accepted: false, reason: 'ANCHOR_ALREADY_SET' };
     if (this.#anchorInFlight) return { accepted: false, reason: 'ANCHOR_IN_FLIGHT' };
 
@@ -112,6 +134,9 @@ export class SessionPipeline {
    * @returns {{accepted: boolean, reason?: 'NO_ANCHOR'}}
    */
   submitDetail(photoId, bitmap, tag = undefined) {
+    Type.check({ photoId }, 'string');
+    Type.check({ bitmap }, ImageBitmap);
+    if (tag !== undefined) Type.check({ tag }, 'string');
     if (!this.#hasAnchor) return { accepted: false, reason: 'NO_ANCHOR' };
 
     this.#pendingDetails.set(photoId, { bitmap, tag });
@@ -122,13 +147,16 @@ export class SessionPipeline {
   }
 
   /** Composites all tiles and triggers a JPEG download. @param {string} [filename] */
-  async exportComposite(filename) {
-    return filename
+  async exportComposite(filename = null) {
+    if (filename !== null) Type.check({ filename }, 'string');
+    return filename !== null
       ? CanvasExporter.downloadComposite(this.#renderer, filename)
       : CanvasExporter.downloadComposite(this.#renderer);
   }
 
   #handleWorkerMessage(msg) {
+    Type.check({ msg }, 'object');
+
     switch (msg.type) {
       case 'STATUS':
         this.#callbacks.onStatus?.(msg.stage);
@@ -187,6 +215,7 @@ export class SessionPipeline {
   }
 
   #applyDetailResult(msg) {
+    Type.check({ msg }, 'object');
     const entry = this.#pendingDetails.get(msg.detailId);
     this.#pendingDetails.delete(msg.detailId);
 

@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 /**
  * TextureUploader.js
  * Helpers for uploading ImageBitmaps (detail/anchor photos) and raw feather
@@ -14,6 +15,8 @@ export class TextureUploader {
    * @returns {WebGLTexture}
    */
   static uploadImageBitmap(gl, bitmap) {
+    Type.check({ gl }, WebGL2RenderingContext);
+    Type.check({ bitmap }, ImageBitmap);
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -35,6 +38,11 @@ export class TextureUploader {
    * @returns {WebGLTexture}
    */
   static uploadFeatherMask(gl, mask) {
+    Type.check({ gl }, WebGL2RenderingContext);
+    Type.check({ mask }, 'object');
+    Type.check({ width: mask.width, height: mask.height }, 'number');
+    Type.check({ data: mask.data }, Uint8ClampedArray);
+    
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);

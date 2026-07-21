@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 /**
  * FrameGrabber.js
  * Grabs a full-resolution frame from the live `<video>` track as a
@@ -11,6 +12,7 @@ export class FrameGrabber {
    * @throws {Error} with `.userMessage` if the frame could not be captured.
    */
   static async grabFullResolution(videoElement) {
+    Type.check({ videoElement }, HTMLVideoElement);
     if (!videoElement.videoWidth || !videoElement.videoHeight) {
       const err = new Error('FrameGrabber: video has no intrinsic dimensions yet.');
       err.userMessage = 'Camera is not ready yet — wait a moment and try again.';

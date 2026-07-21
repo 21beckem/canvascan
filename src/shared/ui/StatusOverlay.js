@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 /**
  * StatusOverlay.js
  * Controls the small status readout (spinner + label) shown while the CV
@@ -34,6 +35,7 @@ export class StatusOverlay {
    * }} refs
    */
   constructor({ statusEl, statusTextEl, toastEl, toastTextEl, queueBadgeEl, queueBadgeTextEl }) {
+    Type.check({ statusEl, statusTextEl, toastEl, toastTextEl, queueBadgeEl, queueBadgeTextEl }, HTMLElement);
     this.#statusEl = statusEl;
     this.#statusTextEl = statusTextEl;
     this.#toastEl = toastEl;
@@ -53,6 +55,7 @@ export class StatusOverlay {
    * @param {number} total
    */
   setQueueProgress(completed, total) {
+    Type.check({ completed, total }, 'number');
     if (!this.#queueBadgeEl || !this.#queueBadgeTextEl) return;
     if (total <= 0) {
       this.#queueBadgeEl.hidden = true;
@@ -64,6 +67,7 @@ export class StatusOverlay {
 
   /** @param {string} stage one of the keys in STAGE_LABELS */
   setStage(stage) {
+    Type.check({ stage }, 'string');
     const label = STAGE_LABELS[stage] ?? 'Working…';
     this.#statusTextEl.textContent = label;
     this.#statusEl.hidden = false;
@@ -85,6 +89,8 @@ export class StatusOverlay {
    * @param {unknown} [debugDetail] optional Error/object logged alongside the message
    */
   showError(message, durationMs = 6000, debugDetail) {
+    Type.check({ message }, 'string');
+    Type.check({ durationMs }, 'number');
     // eslint-disable-next-line no-console
     console.error(`[Canvascan] ${message}`, debugDetail ?? '');
     this.#toastTextEl.textContent = message;

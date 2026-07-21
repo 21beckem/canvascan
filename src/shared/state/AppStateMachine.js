@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 /**
  * AppStateMachine.js
  * Finite state machine governing the three top-level UI states:
@@ -30,6 +31,7 @@ export class AppStateMachine {
   #listeners;
 
   constructor(initialState = AppState.SETUP_CAMERA) {
+    Type.check({ initialState }, 'string');
     this.#state = initialState;
     this.#listeners = new Set();
   }
@@ -50,6 +52,7 @@ export class AppStateMachine {
    * @returns {() => void} unsubscribe function
    */
   onTransition(listener) {
+    Type.check({ listener }, 'function');
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   }
@@ -60,6 +63,7 @@ export class AppStateMachine {
    * @param {string} nextState
    */
   transition(nextState) {
+    Type.check({ nextState }, 'string');
     const allowed = TRANSITIONS[this.#state] ?? [];
     if (!allowed.includes(nextState)) {
       throw new Error(

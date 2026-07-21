@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 import { Config } from '../utils/Config.js';
 
 /**
@@ -32,6 +33,11 @@ export class PhotoTransfer {
    * }} payload
    */
   static async sendPhoto(conn, { photoId, kind, format, width, height, buffer }) {
+    Type.check({ conn }, 'object');
+    Type.check({ photoId, kind, format }, 'string');
+    Type.check({ width, height }, 'number');
+    Type.check({ buffer }, ArrayBuffer);
+
     const chunkSize = Config.TRANSFER_CHUNK_SIZE;
     const totalBytes = buffer.byteLength;
     const totalChunks = Math.max(1, Math.ceil(totalBytes / chunkSize));
@@ -67,6 +73,9 @@ export class PhotoTransfer {
    * specific property name exists.
    */
   static async #pace(conn, chunkIndex) {
+    Type.check({ conn }, 'object');
+    Type.check({ chunkIndex }, 'number');
+
     const channel = conn?.dataChannel ?? conn?._dc ?? null;
     if (channel && typeof channel.bufferedAmount === 'number') {
       while (channel.bufferedAmount > Config.TRANSFER_BACKPRESSURE_THRESHOLD) {
@@ -95,6 +104,8 @@ export class PhotoReceiver {
    * @param {(payload: {photoId:string, kind:string, format:string, width:number, height:number, buffer:ArrayBuffer, senderId:string}) => void} onPhotoComplete
    */
   constructor(onPhotoComplete) {
+    Type.check({ onPhotoComplete }, 'function');
+    
     this.#pending = new Map();
     this.#onPhotoComplete = onPhotoComplete;
   }
@@ -106,7 +117,7 @@ export class PhotoReceiver {
    * @param {string} senderId identifies which connection this came from
    */
   handleMessage(msg, senderId) {
-    if (!msg || typeof msg !== 'object') return;
+    Type.check({ msg }, 'object');
 
     switch (msg.type) {
       case 'PHOTO_START': {
@@ -156,6 +167,7 @@ export class PhotoReceiver {
 
   /** Drops any in-flight transfers associated with a connection that closed. */
   discardFrom(senderId) {
+    Type.check({ senderId }, 'string');
     for (const [photoId, entry] of this.#pending.entries()) {
       if (entry.senderId === senderId) this.#pending.delete(photoId);
     }
@@ -164,6 +176,7 @@ export class PhotoReceiver {
 
 /** Generates a photoId that's unique across the whole pooled session. */
 export function makePhotoId(clientId) {
+  Type.check({ clientId }, 'string');
   const random =
     typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()

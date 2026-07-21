@@ -1,3 +1,4 @@
+import { Type } from '../../shared/utils/Type.js';
 /**
  * QRCodeView.js
  * Thin wrapper around the global `QRCode` class (from qrcodejs, loaded via a
@@ -18,6 +19,7 @@ export class QRCodeView {
 
   /** @param {string} url the scanner.html URL (with ?peer=<hostId>) to encode. */
   render(url) {
+    Type.check({ url }, 'string');
     this.#containerEl.innerHTML = '';
     // eslint-disable-next-line no-undef
     this.#instance = new QRCode(this.#containerEl, {

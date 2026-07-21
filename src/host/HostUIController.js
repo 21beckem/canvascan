@@ -1,3 +1,4 @@
+import { Type } from '../shared/utils/Type.js';
 /**
  * HostUIController.js
  * Wires DOM elements for host.html: the QR pairing panel (which docks to a
@@ -25,12 +26,16 @@ export class HostUIController {
   /**
    * @param {() => void} onExport
    */
-  wireCallbacks({ onExport }) {
-    this.#refs.exportBtn.addEventListener('click', () => onExport?.());
+  wireCallbacks(o) {
+    Type.check({ parameters: o }, 'object');
+    const { onExport } = o;
+    Type.check({ onExport }, 'function');
+    this.#refs.exportBtn.addEventListener('click', () => onExport());
   }
 
   /** @param {number} count number of currently-connected phones. */
   setConnectionCount(count) {
+    Type.check({ count }, 'number');
     const { qrPanelEl, connectedCountEl } = this.#refs;
     qrPanelEl.classList.toggle('docked', count > 0);
     connectedCountEl.textContent =
@@ -40,6 +45,7 @@ export class HostUIController {
 
   /** @param {boolean} hasAnchor whether the (shared, pooled) session has an anchor yet. */
   setHasAnchor(hasAnchor) {
+    Type.check({ hasAnchor }, 'boolean');
     this.#hasAnchor = hasAnchor;
     this.#refreshVisibility(this.#lastCount ?? 0);
   }
@@ -48,6 +54,7 @@ export class HostUIController {
   #lastCount = 0;
 
   #refreshVisibility(count) {
+    Type.check({ count }, 'number');
     this.#lastCount = count;
     const { waitingConnectionEl, waitingAnchorEl, sessionActiveEl } = this.#refs;
     const connected = count > 0;
@@ -58,6 +65,7 @@ export class HostUIController {
 
   /** @param {boolean} enabled whether Export can be tapped right now. */
   setExportEnabled(enabled) {
+    Type.check({ enabled }, 'boolean');
     this.#refs.exportBtn.disabled = !enabled;
   }
 }

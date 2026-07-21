@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 import { Config } from '../utils/Config.js';
 
 /**
@@ -25,6 +26,7 @@ export class TileManager {
    * @param {number} gridRows
    */
   constructor(tileSize, gridCols, gridRows) {
+    Type.check({ tileSize, gridCols, gridRows }, 'number');
     this.#tileSize = tileSize;
     this.#gridCols = gridCols;
     this.#gridRows = gridRows;
@@ -39,6 +41,7 @@ export class TileManager {
    * @returns {TileManager}
    */
   static forContentSize(contentWidth, contentHeight, tileSize = Config.TILE_SIZE) {
+    Type.check({ contentWidth, contentHeight, tileSize }, 'number');
     const gridCols = Math.max(1, Math.ceil(contentWidth / tileSize));
     const gridRows = Math.max(1, Math.ceil(contentHeight / tileSize));
     return new TileManager(tileSize, gridCols, gridRows);
@@ -73,6 +76,7 @@ export class TileManager {
    *   canvas pixel space.
    */
   tileOrigin(row, col) {
+    Type.check({ row, col }, 'number');
     return { x: col * this.#tileSize, y: row * this.#tileSize };
   }
 
@@ -84,6 +88,7 @@ export class TileManager {
    * @returns {{tileRow:number, tileCol:number, localX:number, localY:number}}
    */
   masterToTile(px, py) {
+    Type.check({ px, py }, 'number');
     const tileCol = Math.min(this.#gridCols - 1, Math.max(0, Math.floor(px / this.#tileSize)));
     const tileRow = Math.min(this.#gridRows - 1, Math.max(0, Math.floor(py / this.#tileSize)));
     return {
@@ -108,6 +113,7 @@ export class TileManager {
    * }>}
    */
   tilesIntersectingBBox(minX, minY, maxX, maxY) {
+    Type.check({ minX, minY, maxX, maxY }, 'number');
     const clampedMinX = Math.max(0, Math.min(this.paddedWidth, minX));
     const clampedMinY = Math.max(0, Math.min(this.paddedHeight, minY));
     const clampedMaxX = Math.max(0, Math.min(this.paddedWidth, maxX));

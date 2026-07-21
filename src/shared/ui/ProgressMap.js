@@ -1,3 +1,4 @@
+import { Type } from '../utils/Type.js';
 /**
  * ProgressMap.js
  * Renders a small 2D-canvas mini-map of the tile grid, sized to match the
@@ -20,6 +21,9 @@ export class ProgressMap {
    * @param {number} [maxDisplayDim] CSS px length of the map's longer edge.
    */
   constructor(canvasElement, maxDisplayDim = 90) {
+    Type.check({ canvasElement }, HTMLCanvasElement);
+    Type.check({ maxDisplayDim }, 'number');
+
     this.#canvas = canvasElement;
     this.#ctx = canvasElement.getContext('2d');
     this.#masterWidth = 1;
@@ -38,7 +42,11 @@ export class ProgressMap {
    *   gridCols: number, gridRows: number,
    * }} params
    */
-  configure({ outputWidth, outputHeight, gridCols, gridRows }) {
+  configure(o) {
+    Type.check({ parameters: o }, 'object');
+    const { outputWidth, outputHeight, gridCols, gridRows } = o;
+    Type.check({ outputWidth, outputHeight, gridCols, gridRows }, 'number');
+    
     this.#masterWidth = outputWidth;
     this.#masterHeight = outputHeight;
     this.#gridCols = gridCols;
