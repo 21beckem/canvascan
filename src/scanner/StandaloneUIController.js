@@ -1,13 +1,14 @@
 import { AppState } from '../shared/state/AppStateMachine.js';
 
 /**
- * ScannerUIController.js
- * Wires DOM elements for scanner.html. Nearly identical to the original
- * single-device UI, minus: the stitched-photo counter (now the host's
- * "Stitching X/Y" badge), the Export button, the progress-grid preview, and
- * the Retake Anchor button (session restart is now a host-side page reload).
+ * StandaloneUIController.js
+ * Wires DOM elements for scanner.html when running in phone-only mode
+ * (`?peer=none`): the same capture panels as RemoteScannerUIController, PLUS
+ * the processing-facing elements that only this mode needs on the phone
+ * itself — the small corner progress-grid and the Export button (in
+ * connected mode those live on host.html instead).
  */
-export class ScannerUIController {
+export class StandaloneUIController {
   #refs;
   #currentState;
   #cameraSwitchLocked;
@@ -22,12 +23,15 @@ export class ScannerUIController {
    *   retryCameraBtn: HTMLButtonElement,
    *   switchCameraBtn: HTMLButtonElement,
    *   setupMessageEl: HTMLElement,
+   *   progressMapEl: HTMLElement,
+   *   exportBtn: HTMLButtonElement,
    * }} refs
    */
   constructor(refs) {
     this.#refs = refs;
     this.#currentState = AppState.SETUP_CAMERA;
     this.#cameraSwitchLocked = false;
+    if (this.#refs.exportBtn) this.#refs.exportBtn.hidden = false;
   }
 
   /** @param {import('../shared/state/AppStateMachine.js').AppStateMachine} stateMachine */
@@ -39,11 +43,12 @@ export class ScannerUIController {
 
   #applyState(state) {
     this.#currentState = state;
-    const { panelSetup, panelAnchor, panelDetails } = this.#refs;
+    const { panelSetup, panelAnchor, panelDetails, progressMapEl } = this.#refs;
     panelSetup.hidden = state !== AppState.SETUP_CAMERA;
     panelAnchor.hidden = state !== AppState.CAPTURE_ANCHOR;
     panelDetails.hidden = state !== AppState.CAPTURE_DETAILS;
 
+    if (progressMapEl) progressMapEl.hidden = state !== AppState.CAPTURE_DETAILS;
     if (this.#refs.switchCameraBtn) {
       this.#refs.switchCameraBtn.hidden =
         this.#cameraSwitchLocked || state !== AppState.CAPTURE_ANCHOR;
@@ -56,14 +61,17 @@ export class ScannerUIController {
    *   onCaptureDetail: () => void,
    *   onRetryCamera: () => void,
    *   onSwitchCamera: () => void,
+   *   onExport: () => void,
    * }} handlers
    */
   wireCallbacks(handlers) {
-    const { captureAnchorBtn, captureDetailBtn, retryCameraBtn, switchCameraBtn } = this.#refs;
+    const { captureAnchorBtn, captureDetailBtn, retryCameraBtn, switchCameraBtn, exportBtn } =
+      this.#refs;
     captureAnchorBtn.addEventListener('click', () => handlers.onCaptureAnchor?.());
     captureDetailBtn.addEventListener('click', () => handlers.onCaptureDetail?.());
     retryCameraBtn.addEventListener('click', () => handlers.onRetryCamera?.());
     switchCameraBtn?.addEventListener('click', () => handlers.onSwitchCamera?.());
+    exportBtn?.addEventListener('click', () => handlers.onExport?.());
   }
 
   /** @param {boolean} busy disables capture-anchor/switch-camera during the one-shot anchor capture. */
@@ -73,15 +81,15 @@ export class ScannerUIController {
     if (switchCameraBtn) switchCameraBtn.disabled = busy;
   }
 
-  /** @param {boolean} enabled whether capture-detail can be tapped right now. */
-  setDetailCaptureEnabled(enabled) {
-    this.#refs.captureDetailBtn.disabled = !enabled;
-  }
-
   /** Permanently hides the switch-camera control. */
   lockCameraSwitching() {
     this.#cameraSwitchLocked = true;
     this.#applyState(this.#currentState);
+  }
+
+  /** @param {boolean} enabled whether Export can be tapped right now. */
+  setExportEnabled(enabled) {
+    if (this.#refs.exportBtn) this.#refs.exportBtn.disabled = !enabled;
   }
 
   showSetupError(message) {

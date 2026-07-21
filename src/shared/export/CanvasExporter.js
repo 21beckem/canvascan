@@ -1,4 +1,4 @@
-import { Config } from '../../shared/utils/Config.js';
+import { Config } from '../utils/Config.js';
 
 /**
  * CanvasExporter.js

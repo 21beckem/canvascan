@@ -6,8 +6,8 @@
  * `importScripts()` to load the UMD/Emscripten opencv.js bundle, which is
  * not reliably supported inside module workers across mobile browsers.
  *
- * Instantiated on the main thread via:
- *   new Worker(new URL('./cv-worker/cv.worker.js', import.meta.url))
+ * Instantiated by SessionPipeline.js via:
+ *   new Worker(new URL('../cv-worker/cv.worker.js', import.meta.url))
  * (no `{ type: 'module' }` option — classic worker).
  */
 

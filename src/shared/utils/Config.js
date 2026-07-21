@@ -110,7 +110,9 @@ export class Config {
 
   /**
    * Query-string key on scanner.html that carries the host's PeerJS id,
-   * e.g. scanner.html?peer=abc123.
+   * e.g. scanner.html?peer=abc123. The literal value 'none' is a special
+   * case meaning "run fully standalone on this device" — no PeerJS
+   * connection at all; see src/scanner/ScannerApp.js, which routes on this.
    */
   static PEER_ID_QUERY_PARAM = 'peer';
 }

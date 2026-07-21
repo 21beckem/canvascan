@@ -1,5 +1,5 @@
-import { Config } from '../../shared/utils/Config.js';
-import { Matrix3 } from '../../shared/utils/Matrix3.js';
+import { Config } from '../utils/Config.js';
+import { Matrix3 } from '../utils/Matrix3.js';
 import { TileManager } from './TileManager.js';
 import { ShaderProgram } from './ShaderProgram.js';
 import { TextureUploader } from './TextureUploader.js';

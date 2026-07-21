@@ -133,6 +133,36 @@
   }
   .secondary-btn:disabled { opacity: 0.4; }
 
+  .row { display: flex; gap: 10px; align-items: center; justify-content: center; }
+
+  #progress-map {
+    position: absolute;
+    top: calc(14px + env(safe-area-inset-top));
+    right: 14px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    z-index: 8;
+    background: rgba(20, 22, 26, 0.7);
+  }
+  #progress-map[hidden] { display: none; }
+
+  #queue-badge {
+    position: absolute;
+    top: calc(14px + env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 8;
+    background: rgba(20, 22, 26, 0.85);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    padding: 7px 14px;
+    border-radius: 20px;
+  }
+  #queue-badge[hidden] { display: none; }
+
   #switch-camera-btn {
     position: absolute;
     top: calc(14px + env(safe-area-inset-top));
@@ -229,10 +259,17 @@
 
     <div id="panel-details" class="panel" hidden>
       <p class="hint">Move in close and capture overlapping detail shots.</p>
-      <button id="capture-detail-btn" class="shutter-btn" aria-label="Capture detail photo"></button>
+      <div class="row">
+        <button id="capture-detail-btn" class="shutter-btn" aria-label="Capture detail photo"></button>
+        <button id="export-btn" type="button" class="secondary-btn" hidden disabled>Export</button>
+      </div>
     </div>
 
+    <canvas id="progress-map" width="90" height="90" hidden></canvas>
+
     <button id="switch-camera-btn" type="button" aria-label="Switch camera" hidden>⟳</button>
+
+    <div id="queue-badge" hidden><span id="queue-badge-text"></span></div>
 
     <div id="status-overlay" hidden>
       <div class="spinner"></div>
@@ -244,6 +281,10 @@
       <button type="button" data-role="toast-dismiss" aria-label="Dismiss">✕</button>
     </div>
   </div>
+
+  <!-- Standalone mode (?peer=none) needs its own WebGL2 context — never
+       drawn to directly, same as host.html's; harmless/unused otherwise. -->
+  <canvas id="gl-canvas" width="16" height="16" style="display:none"></canvas>
 
   <!-- Pinned CDN library (classic script — must load before the module below) -->
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>

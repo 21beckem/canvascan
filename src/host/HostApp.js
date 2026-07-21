@@ -2,9 +2,7 @@ import { Config } from '../shared/utils/Config.js';
 import { StatusOverlay } from '../shared/ui/StatusOverlay.js';
 import { PhotoCodec } from '../shared/transfer/PhotoCodec.js';
 import { PhotoReceiver } from '../shared/transfer/PhotoTransfer.js';
-import { WebGL2Renderer } from './render/WebGL2Renderer.js';
-import { ProgressMap } from './ui/ProgressMap.js';
-import { CanvasExporter } from './export/CanvasExporter.js';
+import { SessionPipeline } from '../shared/pipeline/SessionPipeline.js';
 import { HostUIController } from './HostUIController.js';
 import { PeerHostManager } from './PeerHostManager.js';
 import { QRCodeView } from './qrcode/QRCodeView.js';
@@ -12,38 +10,20 @@ import { QRCodeView } from './qrcode/QRCodeView.js';
 /**
  * HostApp.js
  * Composition root for host.html — the computer side of the phone/computer
- * split architecture. Owns the WebGL2 tiled renderer, the OpenCV worker, and
- * the pooled PeerJS session: any number of phones may be connected at once,
- * and any of them may contribute the (single, shared) anchor photo or any
- * number of detail photos. The first accepted anchor wins; later phones
- * that try to set one are just told the session's anchor is already set.
+ * split architecture. All of "the actual processing" (OpenCV worker, WebGL2
+ * tiled renderer, progress grid, export) lives in SessionPipeline, shared
+ * with StandaloneApp.js (phone-only mode); this file's job is purely the
+ * PeerJS transport and pooled multi-phone session bookkeeping — routing
+ * each phone's photos into the pipeline and routing acks back to the right
+ * phone (using that phone's peerId as the pipeline's opaque "tag").
  */
 class HostApp {
   #ui;
   #statusOverlay;
-  #progressMap;
-  #renderer;
-  #worker;
+  #pipeline;
   #peerHost;
   #photoReceiver;
   #qrCodeView;
-  #cvReady;
-  #hasAnchor;
-  #anchorInFlight;
-  #anchorSenderId;
-  #totalDetailCount;
-  #completedDetailCount;
-  #pendingBitmaps; // photoId -> { bitmap: ImageBitmap, senderId: string }
-
-  constructor() {
-    this.#cvReady = false;
-    this.#hasAnchor = false;
-    this.#anchorInFlight = false;
-    this.#anchorSenderId = null;
-    this.#totalDetailCount = 0;
-    this.#completedDetailCount = 0;
-    this.#pendingBitmaps = new Map();
-  }
 
   start() {
     this.#ui = new HostUIController({
@@ -68,26 +48,35 @@ class HostApp {
       queueBadgeTextEl: document.getElementById('queue-badge-text'),
     });
 
-    this.#progressMap = new ProgressMap(document.getElementById('progress-map'), 640);
-    this.#renderer = WebGL2Renderer.create(document.getElementById('gl-canvas'));
+    this.#pipeline = new SessionPipeline({
+      glCanvasElement: document.getElementById('gl-canvas'),
+      progressMapElement: document.getElementById('progress-map'),
+      progressMapMaxDim: 640,
+      callbacks: {
+        onStatus: (stage) => this.#statusOverlay.setStage(stage),
+        onReady: () => this.#statusOverlay.hide(),
+        onWorkerError: (event) =>
+          this.#statusOverlay.showError(
+            'The vision engine crashed. Reload the page to continue.',
+            6000,
+            event
+          ),
+        onAnchorReady: () => this.#handleAnchorReady(),
+        onAnchorFailed: (reason, tag) => this.#handleAnchorFailed(reason, tag),
+        onDetailResult: (_bbox, tag, photoId) => this.#handleDetailResult(tag, photoId),
+        onDetailFailed: (reason, tag, photoId) => this.#handleDetailFailed(reason, tag, photoId),
+        onQueueChanged: (completed, total) => {
+          this.#statusOverlay.setQueueProgress(completed, total);
+          this.#ui.setExportEnabled(completed >= total);
+        },
+        onQueueDrained: () => this.#statusOverlay.hide(),
+      },
+    });
+
     this.#photoReceiver = new PhotoReceiver((payload) => this.#handlePhotoComplete(payload));
     this.#qrCodeView = new QRCodeView(document.getElementById('qr-code'));
 
-    this.#initWorker();
     this.#initPeerHost();
-  }
-
-  #initWorker() {
-    this.#worker = new Worker(new URL('./cv-worker/cv.worker.js', import.meta.url));
-    this.#worker.postMessage({ type: 'INIT' });
-    this.#worker.onmessage = (event) => this.#handleWorkerMessage(event.data);
-    this.#worker.onerror = (event) => {
-      this.#statusOverlay.showError(
-        'The vision engine crashed. Reload the page to continue.',
-        6000,
-        event
-      );
-    };
   }
 
   #initPeerHost() {
@@ -101,7 +90,7 @@ class HostApp {
         ),
       onClientConnected: (peerId, count) => {
         this.#ui.setConnectionCount(count);
-        if (this.#hasAnchor) {
+        if (this.#pipeline.hasAnchor) {
           // Late joiner: the pooled session already has an anchor, so this
           // phone should skip straight to detail capture.
           this.#peerHost.sendTo(peerId, { type: 'ANCHOR_ESTABLISHED' });
@@ -118,60 +107,12 @@ class HostApp {
   #handleHostReady(hostPeerId) {
     const scannerUrl = new URL('scanner.html', window.location.href);
     scannerUrl.searchParams.set(Config.PEER_ID_QUERY_PARAM, hostPeerId);
-    console.log(`Host ready. Peer ID: ${hostPeerId}. Scanner URL: ${scannerUrl.toString()}`);
+    console.log(`Host ready. Scanner URL: ${scannerUrl.toString()}`);
     this.#qrCodeView.render(scannerUrl.toString());
   }
 
-  #handleWorkerMessage(msg) {
-    switch (msg.type) {
-      case 'STATUS':
-        this.#statusOverlay.setStage(msg.stage);
-        break;
-
-      case 'READY':
-        this.#cvReady = true;
-        this.#statusOverlay.hide();
-        break;
-
-      case 'ANCHOR_READY':
-        this.#handleAnchorReady();
-        break;
-
-      case 'ANCHOR_FAILED':
-        this.#anchorInFlight = false;
-        if (this.#anchorSenderId) {
-          this.#peerHost.sendTo(this.#anchorSenderId, { type: 'ANCHOR_FAILED', reason: msg.reason });
-        }
-        this.#statusOverlay.showError(msg.reason, 6000, msg);
-        break;
-
-      case 'DETAIL_RESULT':
-        this.#applyDetailResult(msg);
-        break;
-
-      case 'DETAIL_FAILED': {
-        const entry = this.#pendingBitmaps.get(msg.detailId);
-        this.#pendingBitmaps.delete(msg.detailId);
-        if (entry?.senderId) {
-          this.#peerHost.sendTo(entry.senderId, {
-            type: 'DETAIL_ACK',
-            photoId: msg.detailId,
-            success: false,
-            reason: msg.reason,
-          });
-        }
-        this.#statusOverlay.showError(msg.reason, 6000, msg);
-        this.#advanceDetailQueue();
-        break;
-      }
-
-      default:
-        break;
-    }
-  }
-
   async #handlePhotoComplete({ photoId, kind, format, width, height, buffer, senderId }) {
-    if (!this.#cvReady) {
+    if (!this.#pipeline.isReady) {
       this.#statusOverlay.showError('Still starting up — try that photo again in a few seconds.');
       return;
     }
@@ -185,93 +126,49 @@ class HostApp {
     }
 
     if (kind === 'ANCHOR') {
-      if (this.#hasAnchor) {
-        // Another phone already established the session's anchor; let this
-        // (likely-racing) sender know so its UI can resync.
-        this.#peerHost.sendTo(senderId, { type: 'ANCHOR_ESTABLISHED' });
+      const result = this.#pipeline.submitAnchor(bitmap, senderId);
+      if (!result.accepted) {
+        // Another phone already has (or is mid-submitting) the anchor.
+        const type = result.reason === 'ANCHOR_ALREADY_SET' ? 'ANCHOR_ESTABLISHED' : 'ANCHOR_BUSY';
+        this.#peerHost.sendTo(senderId, { type });
         bitmap.close();
-        return;
       }
-      if (this.#anchorInFlight) {
-        // A different phone's anchor is already being processed right now.
-        this.#peerHost.sendTo(senderId, { type: 'ANCHOR_BUSY' });
-        bitmap.close();
-        return;
-      }
-      this.#anchorInFlight = true;
-      this.#anchorSenderId = senderId;
-      this.#renderer.configureForAnchor(bitmap);
-      this.#worker.postMessage({ type: 'SET_ANCHOR', imageBitmap: bitmap }, [bitmap]);
       return;
     }
 
     // kind === 'DETAIL'
-    if (!this.#hasAnchor) {
-      bitmap.close();
-      return; // defensive: phones shouldn't send details before the anchor exists
+    const result = this.#pipeline.submitDetail(photoId, bitmap, senderId);
+    if (!result.accepted) {
+      bitmap.close(); // defensive: phones shouldn't send details before an anchor exists
     }
-    this.#pendingBitmaps.set(photoId, { bitmap, senderId });
-    this.#totalDetailCount++;
-    this.#statusOverlay.setQueueProgress(this.#completedDetailCount, this.#totalDetailCount);
-    this.#ui.setExportEnabled(false);
-    this.#worker.postMessage({ type: 'PROCESS_DETAIL', detailId: photoId, imageBitmap: bitmap });
   }
 
   #handleAnchorReady() {
-    const { width: outputWidth, height: outputHeight } = this.#renderer.outputSize;
-    const { gridCols, gridRows } = this.#renderer.tileManager;
-
-    this.#progressMap.configure({ outputWidth, outputHeight, gridCols, gridRows });
-    this.#progressMap.markAnchorPainted();
-
-    this.#hasAnchor = true;
-    this.#anchorInFlight = false;
-    this.#anchorSenderId = null;
-    this.#totalDetailCount = 0;
-    this.#completedDetailCount = 0;
-    this.#statusOverlay.setQueueProgress(0, 0);
-    this.#statusOverlay.hide();
-
     this.#ui.setHasAnchor(true);
     this.#ui.setExportEnabled(true);
+    // Broadcasting to everyone also reaches whichever phone's anchor won,
+    // so it doesn't need a separate targeted ack.
     this.#peerHost.broadcast({ type: 'ANCHOR_ESTABLISHED' });
   }
 
-  #applyDetailResult(msg) {
-    const entry = this.#pendingBitmaps.get(msg.detailId);
-    this.#pendingBitmaps.delete(msg.detailId);
-
-    try {
-      const bbox = this.#renderer.stitchDetail({
-        detailBitmap: entry?.bitmap,
-        homography: msg.homography,
-        featherMask: msg.featherMask,
-        detailWidth: msg.detailWidth,
-        detailHeight: msg.detailHeight,
-      });
-      this.#progressMap.markStitched(bbox);
-      if (entry?.senderId) {
-        this.#peerHost.sendTo(entry.senderId, { type: 'DETAIL_ACK', photoId: msg.detailId, success: true });
-      }
-    } finally {
-      entry?.bitmap?.close();
-      this.#advanceDetailQueue();
-    }
+  #handleAnchorFailed(reason, tag) {
+    if (tag) this.#peerHost.sendTo(tag, { type: 'ANCHOR_FAILED', reason });
+    this.#statusOverlay.showError(reason);
   }
 
-  #advanceDetailQueue() {
-    this.#completedDetailCount++;
-    this.#statusOverlay.setQueueProgress(this.#completedDetailCount, this.#totalDetailCount);
-    if (this.#completedDetailCount >= this.#totalDetailCount) {
-      this.#statusOverlay.hide();
-      this.#ui.setExportEnabled(true);
-    }
+  #handleDetailResult(tag, photoId) {
+    if (tag) this.#peerHost.sendTo(tag, { type: 'DETAIL_ACK', photoId, success: true });
+  }
+
+  #handleDetailFailed(reason, tag, photoId) {
+    if (tag) this.#peerHost.sendTo(tag, { type: 'DETAIL_ACK', photoId, success: false, reason });
+    this.#statusOverlay.showError(reason);
   }
 
   async #handleExport() {
     this.#ui.setExportEnabled(false);
     try {
-      await CanvasExporter.downloadComposite(this.#renderer);
+      await this.#pipeline.exportComposite();
     } catch (err) {
       this.#statusOverlay.showError('Could not export the final image.', 6000, err);
     } finally {

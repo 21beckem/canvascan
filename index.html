@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Canvascan</title>
+<style>
+  :root {
+    --ink: #0e1013;
+    --panel: #14161a;
+    --panel-raised: #1c1f24;
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e9e6dd;
+    --text-dim: #9a988f;
+    --brass: #c9a24b;
+    --brass-dim: #8a7038;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--sans);
+  }
+
+  #app {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    font-family: var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--brass);
+    font-size: 15px;
+    margin: 0;
+  }
+
+  #new-scan-btn {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--brass);
+    border: none;
+    padding: 13px 24px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #new-scan-btn:active { background: var(--brass-dim); }
+
+  h2 {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin: 0 0 14px;
+  }
+
+  #recent-scans-empty {
+    border: 1px dashed var(--line);
+    border-radius: 14px;
+    padding: 64px 24px;
+    text-align: center;
+    color: var(--text-dim);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  #recent-scans-empty .icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+  }
+
+  #recent-scans-empty p {
+    margin: 0;
+    font-size: 14.5px;
+  }
+
+  #recent-scans-empty .sub {
+    font-size: 13px;
+    margin-top: 6px;
+    opacity: 0.75;
+  }
+
+  /* Mobile: full-width stacked layout, bigger tap target */
+  @media (max-width: 600px) {
+    #app { padding: 20px 16px 48px; }
+    header { flex-direction: column; align-items: stretch; }
+    #new-scan-btn { width: 100%; padding: 16px; font-size: 16px; }
+    #recent-scans-empty { padding: 48px 18px; }
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1 class="brand">Canvascan</h1>
+      <button id="new-scan-btn" type="button">+ New Scan</button>
+    </header>
+
+    <section>
+      <h2>Recent Scans</h2>
+      <div id="recent-scans-empty">
+        <div class="icon">🖼️</div>
+        <p>Coming soon</p>
+        <p class="sub">Your scanned paintings will show up here.</p>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    /**
+     * Device-aware routing for "New Scan": desktops open host.html (the
+     * pairing/processing screen with the QR code); phones/touch devices open
+     * scanner.html directly in fully-local mode (?peer=none), skipping the
+     * pairing flow entirely since there's nothing to pair with.
+     *
+     * This is a heuristic, not a certainty — touchscreen laptops or tablets
+     * in an unusual configuration can guess wrong either way. There's no
+     * fully reliable way to detect "phone vs computer" from a browser, so
+     * this combines two independent signals (coarse/touch pointer + a
+     * narrow viewport) rather than trusting either alone.
+     */
+    function isPhoneLike() {
+      const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+      const narrowViewport = window.matchMedia('(max-width: 900px)').matches;
+      return coarsePointer && narrowViewport;
+    }
+
+    document.getElementById('new-scan-btn').addEventListener('click', () => {
+      window.location.href = isPhoneLike() ? 'scanner.html?peer=none' : 'host.html';
+    });
+  </script>
+</body>
+</html>
