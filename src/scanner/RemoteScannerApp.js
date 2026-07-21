@@ -66,6 +66,8 @@ export class RemoteScannerApp {
       statusTextEl: document.getElementById('status-text'),
       toastEl: document.getElementById('toast'),
       toastTextEl: document.getElementById('toast-text'),
+      queueBadgeEl: null,
+      queueBadgeTextEl: null,
     });
 
     const hostPeerId = new URLSearchParams(window.location.search).get(
@@ -110,13 +112,10 @@ export class RemoteScannerApp {
     });
   }
 
-  #handleHostMessage(o) {
-    Type.check({ parameters: o }, 'object');
-    const { type, reason, success } = o;
-    Type.check({ type, reason }, 'string');
-    Type.check({ success }, 'boolean');
+  #handleHostMessage(msg) {
+    Type.check({ msg }, 'object');
 
-    switch (type) {
+    switch (msg.type) {
       case 'ANCHOR_ESTABLISHED':
         this.#anchorEstablished = true;
         if (this.#stateMachine.is(AppState.CAPTURE_ANCHOR)) {
@@ -129,7 +128,7 @@ export class RemoteScannerApp {
         break;
 
       case 'ANCHOR_FAILED':
-        this.#statusOverlay.showError(reason || 'The anchor photo could not be processed.');
+        this.#statusOverlay.showError(msg.reason || 'The anchor photo could not be processed.');
         this.#ui.setAnchorBusy(false);
         break;
 
@@ -139,8 +138,8 @@ export class RemoteScannerApp {
         break;
 
       case 'DETAIL_ACK':
-        if (!success) {
-          this.#statusOverlay.showError(reason || 'That detail photo could not be aligned.');
+        if (!msg.success) {
+          this.#statusOverlay.showError(msg.reason || 'That detail photo could not be aligned.');
         }
         break;
 

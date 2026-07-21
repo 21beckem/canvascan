@@ -153,6 +153,7 @@ class HostApp {
   }
 
   #handleAnchorReady() {
+    this.#statusOverlay.hide();
     this.#ui.setHasAnchor(true);
     this.#ui.setExportEnabled(true);
     // Broadcasting to everyone also reaches whichever phone's anchor won,

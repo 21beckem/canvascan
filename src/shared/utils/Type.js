@@ -1,9 +1,11 @@
 export class Type {
-    static check(argObj, expectedType) {
+    static check(argObj, expectedType, isNullable=false) {
         if (typeof argObj !== 'object' || argObj === null || Array.isArray(argObj))
             throw new TypeError(`assertType error: First argument must be an object wrapper.`);
         if (typeof expectedType !== 'string' && typeof expectedType !== 'function')
             throw new TypeError(`assertType error: Expected type must be a string or class definition.`);
+        if (typeof isNullable !== 'boolean')
+            throw new TypeError(`assertType error: isNullable must be a boolean.`);
 
         const entries = Object.entries(argObj);
         if (entries.length === 0)
@@ -12,10 +14,12 @@ export class Type {
         for (const [paramName, value] of entries) {
             const actualType = Object.prototype.toString.call(value).slice(8, -1).toLowerCase();
 
+            if (isNullable && value === null) continue;
+
             if (typeof expectedType === 'function') {
-                if (value instanceof expectedType) return;
+                if (value instanceof expectedType) continue;
             } else {
-                if (actualType === expectedType.toLowerCase()) return;
+                if (actualType === expectedType.toLowerCase()) continue;
             }
 
             // Doesn't match, throw TypeError

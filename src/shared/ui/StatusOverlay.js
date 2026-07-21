@@ -35,7 +35,8 @@ export class StatusOverlay {
    * }} refs
    */
   constructor({ statusEl, statusTextEl, toastEl, toastTextEl, queueBadgeEl, queueBadgeTextEl }) {
-    Type.check({ statusEl, statusTextEl, toastEl, toastTextEl, queueBadgeEl, queueBadgeTextEl }, HTMLElement);
+    Type.check({ statusEl, statusTextEl, toastEl, toastTextEl }, HTMLElement);
+    Type.check({ queueBadgeEl, queueBadgeTextEl }, HTMLElement, true);
     this.#statusEl = statusEl;
     this.#statusTextEl = statusTextEl;
     this.#toastEl = toastEl;

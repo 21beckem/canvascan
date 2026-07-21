@@ -84,6 +84,7 @@ export class StandaloneApp {
           ),
         onAnchorReady: () => this.#handleAnchorReady(),
         onAnchorFailed: (reason) => {
+          this.#statusOverlay.hide();
           this.#statusOverlay.showError(reason);
           this.#ui.setAnchorBusy(false);
         },
@@ -93,6 +94,7 @@ export class StandaloneApp {
           this.#ui.setExportEnabled(completed >= total);
         },
         onQueueDrained: () => this.#statusOverlay.hide(),
+        onDetailResult: () => {}
       },
     });
 
@@ -138,6 +140,7 @@ export class StandaloneApp {
   }
 
   #handleAnchorReady() {
+    this.#statusOverlay.hide();
     this.#ui.setAnchorBusy(false);
     this.#ui.lockCameraSwitching();
     this.#ui.setExportEnabled(true);

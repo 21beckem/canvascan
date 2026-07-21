@@ -11,6 +11,7 @@ export class CameraController {
   #videoElement;
   #devices;
   #currentDeviceId;
+  #unavailableDeviceIds;
 
   /**
    * @param {MediaStream} stream
@@ -22,6 +23,7 @@ export class CameraController {
     this.#stream = stream;
     this.#videoElement = null;
     this.#devices = null;
+    this.#unavailableDeviceIds = new Set();
     this.#currentDeviceId = deviceId;
   }
 
@@ -48,13 +50,46 @@ export class CameraController {
       },
     };
 
+    const lastDeviceId = localStorage.getItem('CANVASCAN-last-camera-device-id');
+    if (lastDeviceId)
+      constraints.video.deviceId = { exact: lastDeviceId };
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       const deviceId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? null;
+      localStorage.setItem('CANVASCAN-last-camera-device-id', deviceId);
       return new CameraController(stream, deviceId);
     } catch (err) {
       throw CameraController.#wrapGetUserMediaError(err);
     }
+  }
+
+  async #restartStream() {
+    const constraints = {
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: Config.CAMERA_IDEAL_WIDTH },
+        height: { ideal: Config.CAMERA_IDEAL_HEIGHT },
+      },
+    };
+    const lastDeviceId = localStorage.getItem('CANVASCAN-last-camera-device-id');
+    if (lastDeviceId)
+      constraints.video.deviceId = { exact: lastDeviceId };
+    else if (this.#currentDeviceId)
+      constraints.video.deviceId = { exact: this.#currentDeviceId };
+
+    this.stop();
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const deviceId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? null;
+    localStorage.setItem('CANVASCAN-last-camera-device-id', deviceId);
+    
+    this.#stream = stream;
+    this.#currentDeviceId = deviceId;
+
+    if (this.#videoElement)
+      await this.attach(this.#videoElement);
   }
 
   static #wrapGetUserMediaError(err) {
@@ -83,7 +118,7 @@ export class CameraController {
    */
   async #refreshDeviceList() {
     const all = await navigator.mediaDevices.enumerateDevices();
-    this.#devices = all.filter((d) => d.kind === 'videoinput');
+    this.#devices = all.filter((d) => d.kind === 'videoinput' && !this.#unavailableDeviceIds.has(d.deviceId));
     return this.#devices;
   }
 
@@ -116,23 +151,24 @@ export class CameraController {
       },
     };
 
-    for (const track of this.#stream.getTracks()) {
-      track.stop();
-    }
+    this.stop();
 
     let newStream;
     try {
       newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      localStorage.setItem('CANVASCAN-last-camera-device-id', nextDevice.deviceId);
+      this.#currentDeviceId = nextDevice.deviceId;
+
+      this.#stream = newStream;
+      this.#currentDeviceId = nextDevice.deviceId;
     } catch (err) {
+      this.#unavailableDeviceIds.add(nextDevice.deviceId);
+      this.#restartStream();
       throw CameraController.#wrapGetUserMediaError(err);
     }
-
-    this.#stream = newStream;
-    this.#currentDeviceId = nextDevice.deviceId;
-
-    if (this.#videoElement) {
+    
+    if (this.#videoElement)
       await this.attach(this.#videoElement);
-    }
 
     return nextDevice;
   }

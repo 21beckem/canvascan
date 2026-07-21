@@ -63,7 +63,7 @@ export class SessionPipeline {
       onStatus: callbacks.onStatus,
       onReady: callbacks.onReady,
       onWorkerError: callbacks.onWorkerError,
-      onAnchorReadynumber: callbacks.onAnchorReadynumber,
+      onAnchorReady: callbacks.onAnchorReady,
       onAnchorFailed: callbacks.onAnchorFailed,
       onDetailResult: callbacks.onDetailResult,
       onDetailFailed: callbacks.onDetailFailed,
@@ -87,7 +87,7 @@ export class SessionPipeline {
     this.#worker = new Worker(new URL('../cv-worker/cv.worker.js', import.meta.url));
     this.#worker.postMessage({ type: 'INIT' });
     this.#worker.onmessage = (event) => this.#handleWorkerMessage(event.data);
-    this.#worker.onerror = (event) => this.#callbacks.onWorkerError?.(event);
+    this.#worker.onerror = (event) => this.#callbacks.onWorkerError(event);
   }
 
   /** @returns {boolean} whether the OpenCV worker has finished loading. */
@@ -141,7 +141,7 @@ export class SessionPipeline {
 
     this.#pendingDetails.set(photoId, { bitmap, tag });
     this.#totalDetailCount++;
-    this.#callbacks.onQueueChanged?.(this.#completedDetailCount, this.#totalDetailCount);
+    this.#callbacks.onQueueChanged(this.#completedDetailCount, this.#totalDetailCount);
     this.#worker.postMessage({ type: 'PROCESS_DETAIL', detailId: photoId, imageBitmap: bitmap });
     return { accepted: true };
   }
@@ -159,12 +159,12 @@ export class SessionPipeline {
 
     switch (msg.type) {
       case 'STATUS':
-        this.#callbacks.onStatus?.(msg.stage);
+        this.#callbacks.onStatus(msg.stage);
         break;
 
       case 'READY':
         this.#cvReady = true;
-        this.#callbacks.onReady?.();
+        this.#callbacks.onReady();
         break;
 
       case 'ANCHOR_READY':
@@ -175,7 +175,7 @@ export class SessionPipeline {
         this.#anchorInFlight = false;
         const tag = this.#anchorTag;
         this.#anchorTag = null;
-        this.#callbacks.onAnchorFailed?.(msg.reason, tag);
+        this.#callbacks.onAnchorFailed(msg.reason, tag);
         break;
       }
 
@@ -187,7 +187,7 @@ export class SessionPipeline {
         const entry = this.#pendingDetails.get(msg.detailId);
         this.#pendingDetails.delete(msg.detailId);
         entry?.bitmap?.close();
-        this.#callbacks.onDetailFailed?.(msg.reason, entry?.tag, msg.detailId);
+        this.#callbacks.onDetailFailed(msg.reason, entry?.tag, msg.detailId);
         this.#advanceQueue();
         break;
       }
@@ -211,7 +211,7 @@ export class SessionPipeline {
 
     const tag = this.#anchorTag;
     this.#anchorTag = null;
-    this.#callbacks.onAnchorReady?.({ outputWidth, outputHeight, gridCols, gridRows }, tag);
+    this.#callbacks.onAnchorReady({ outputWidth, outputHeight, gridCols, gridRows }, tag);
   }
 
   #applyDetailResult(msg) {
@@ -228,7 +228,7 @@ export class SessionPipeline {
         detailHeight: msg.detailHeight,
       });
       this.#progressMap.markStitched(bbox);
-      this.#callbacks.onDetailResult?.(bbox, entry?.tag, msg.detailId);
+      this.#callbacks.onDetailResult(bbox, entry?.tag, msg.detailId);
     } finally {
       entry?.bitmap?.close();
       this.#advanceQueue();
@@ -237,9 +237,9 @@ export class SessionPipeline {
 
   #advanceQueue() {
     this.#completedDetailCount++;
-    this.#callbacks.onQueueChanged?.(this.#completedDetailCount, this.#totalDetailCount);
+    this.#callbacks.onQueueChanged(this.#completedDetailCount, this.#totalDetailCount);
     if (this.#completedDetailCount >= this.#totalDetailCount) {
-      this.#callbacks.onQueueDrained?.();
+      this.#callbacks.onQueueDrained();
     }
   }
 }
