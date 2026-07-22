@@ -42,6 +42,18 @@
     margin-bottom: 32px;
     flex-wrap: wrap;
   }
+  
+  #compare-img {
+    border: none;
+    border-radius: 14px;
+    background-image: url('./img/compare-fish.jpg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    aspect-ratio: 1.5;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto 32px;
+  }
 
   .brand {
     font-family: var(--mono);
@@ -116,6 +128,7 @@
       <h1 class="brand">Canvascan</h1>
       <button id="new-scan-btn" type="button">+ New Scan</button>
     </header>
+    <div id="compare-img"></div>
 
     <section>
       <h2>Recent Scans</h2>
